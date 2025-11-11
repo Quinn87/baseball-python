@@ -17,7 +17,7 @@ file = open("data.csv", "a")
 writer = csv.writer(file)
 
 for row in reader:
-    writer.writerow(row)
+    writer.writerow([row])
 
 
 
