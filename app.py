@@ -34,6 +34,8 @@ if 'league_id' not in st.session_state:
     st.session_state.league_id = ""
 if 'my_team_name' not in st.session_state:
     st.session_state.my_team_name = ""
+if 'available_players' not in st.session_state:
+    st.session_state.available_players = None
 
 
 def load_initial_data():
@@ -62,6 +64,7 @@ def main():
             "💎 Value Analysis",
             "🔄 Player Comparison",
             "👥 My Roster",
+            "🆓 Available Players",
             "🏆 League Standings",
             "📜 Transactions",
             "⚙️ Settings"
@@ -105,6 +108,8 @@ def main():
         show_player_comparison()
     elif page == "👥 My Roster":
         show_my_roster()
+    elif page == "🆓 Available Players":
+        show_available_players()
     elif page == "🏆 League Standings":
         show_league_standings()
     elif page == "📜 Transactions":
@@ -645,6 +650,157 @@ def show_my_roster():
     
     # Display roster
     st.dataframe(display_df, use_container_width=True, height=500)
+
+
+def show_available_players():
+    """Display all available free agents not on any roster."""
+    st.title("🆓 Available Players")
+    
+    dm = st.session_state.data_manager
+    league = st.session_state.fantrax_league
+    
+    if not league:
+        st.warning("⚠️ No league connected. Go to 'Fantrax League' to connect.")
+        return
+    
+    st.markdown("### Free Agents - Players Not on Any Roster")
+    st.info("💡 These players are available for waiver claims or draft picks. Compare their stats to make informed decisions!")
+    
+    # Add refresh button
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if st.button("🔄 Refresh Available Players"):
+            if 'available_players' in st.session_state:
+                del st.session_state.available_players
+            st.rerun()
+    
+    # Fetch available players if not in session state
+    if 'available_players' not in st.session_state or st.session_state.available_players is None:
+        with st.spinner("Loading available players... (this may take 30-60 seconds)"):
+            available_df = dm.get_available_players(league)
+            st.session_state.available_players = available_df
+    else:
+        available_df = st.session_state.available_players
+    
+    if available_df.empty:
+        st.error("Failed to load available players")
+        return
+    
+    # Display summary stats
+    st.markdown("---")
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Available Players", f"{len(available_df):,}")
+    with col2:
+        if 'Position' in available_df.columns:
+            num_positions = available_df['Position'].nunique()
+            st.metric("Positions", num_positions)
+        else:
+            st.metric("Positions", "N/A")
+    with col3:
+        if 'MLB_Team' in available_df.columns:
+            num_teams = available_df['MLB_Team'].nunique()
+            st.metric("MLB Teams", num_teams)
+        else:
+            st.metric("MLB Teams", "N/A")
+    with col4:
+        # Calculate percentage available
+        total_in_db = len(dm.id_map_df) if dm.id_map_df is not None else 0
+        pct_available = (len(available_df) / total_in_db * 100) if total_in_db > 0 else 0
+        st.metric("% Available", f"{pct_available:.1f}%")
+    
+    st.markdown("---")
+    
+    # Filter options
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if 'Position' in available_df.columns:
+            position_filter = st.selectbox(
+                "Filter by Position:",
+                ["All"] + sorted([p for p in available_df['Position'].unique() if pd.notna(p)])
+            )
+        else:
+            position_filter = "All"
+    
+    with col2:
+        if 'MLB_Team' in available_df.columns:
+            mlb_team_filter = st.selectbox(
+                "Filter by MLB Team:",
+                ["All"] + sorted([t for t in available_df['MLB_Team'].unique() if pd.notna(t)])
+            )
+        else:
+            mlb_team_filter = "All"
+    
+    with col3:
+        # Position type filter
+        pos_type_options = ["All", "Batters", "Pitchers"]
+        pos_type_filter = st.selectbox("Player Type:", pos_type_options)
+    
+    # Search box
+    search_query = st.text_input("🔍 Search by player name:", "")
+    
+    # Apply filters
+    display_df = available_df.copy()
+    
+    if position_filter != "All":
+        display_df = display_df[display_df['Position'].str.contains(position_filter, na=False)]
+    
+    if mlb_team_filter != "All":
+        display_df = display_df[display_df['MLB_Team'] == mlb_team_filter]
+    
+    # Position type filter (batters vs pitchers)
+    if pos_type_filter == "Batters" and 'Position' in display_df.columns:
+        batter_positions = ['C', '1B', '2B', '3B', 'SS', 'OF', 'DH', 'LF', 'CF', 'RF', 'UT']
+        display_df = display_df[display_df['Position'].str.contains('|'.join(batter_positions), na=False, case=False)]
+    elif pos_type_filter == "Pitchers" and 'Position' in display_df.columns:
+        pitcher_positions = ['SP', 'RP', 'P']
+        display_df = display_df[display_df['Position'].str.contains('|'.join(pitcher_positions), na=False, case=False)]
+    
+    if search_query:
+        display_df = display_df[display_df['Player_Name'].str.contains(search_query, case=False, na=False)]
+    
+    # Display results
+    st.markdown(f"**Showing {len(display_df):,} of {len(available_df):,} available players**")
+    
+    # Add option to merge with projections
+    if st.checkbox("📊 Merge with Projections (if loaded)", value=False):
+        if dm.steamer_batters is not None or dm.steamer_pitchers is not None:
+            st.info("Projection merge - coming soon!")
+        else:
+            st.warning("No projections loaded. Go to Dashboard and click 'Load Projections'")
+    
+    # Display dataframe
+    st.dataframe(
+        display_df, 
+        use_container_width=True, 
+        height=500,
+        column_config={
+            "Player_Name": st.column_config.TextColumn("Player", width="medium"),
+            "Position": st.column_config.TextColumn("Pos", width="small"),
+            "MLB_Team": st.column_config.TextColumn("MLB Team", width="small"),
+            "Fantrax_ID": st.column_config.TextColumn("Fantrax ID", width="small"),
+            "Fangraphs_ID": st.column_config.TextColumn("FG ID", width="small"),
+        }
+    )
+    
+    # Export option
+    st.markdown("---")
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if st.button("📥 Export to CSV"):
+            csv = display_df.to_csv(index=False)
+            st.download_button(
+                label="Download CSV",
+                data=csv,
+                file_name=f"available_players_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv"
+            )
+    
+    with col2:
+        st.info("💡 **Tip**: Export to CSV to analyze with projections in a spreadsheet")
+
     
     # Download button
     csv = roster_df.to_csv(index=False)

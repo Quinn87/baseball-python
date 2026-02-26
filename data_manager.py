@@ -497,12 +497,156 @@ class DataManager:
             print(f"✗ Error fetching all rosters: {str(e)}")
             return {}
     
+    def get_all_claimed_players(self, league: 'League') -> pd.DataFrame:
+        """
+        Get a combined DataFrame of all claimed players across all teams.
+        
+        Args:
+            league: League object from connect_fantrax_league()
+            
+        Returns:
+            DataFrame with all claimed players and their fantasy team owners
+        """
+        try:
+            print("Fetching all team rosters...")
+            all_rosters = self.get_all_rosters(league)
+            
+            if not all_rosters:
+                return pd.DataFrame()
+            
+            # Combine all rosters into one DataFrame with Fantasy_Team column
+            combined_data = []
+            for team_name, roster_df in all_rosters.items():
+                if not roster_df.empty:
+                    roster_df = roster_df.copy()
+                    roster_df['Fantasy_Team'] = team_name
+                    combined_data.append(roster_df)
+            
+            if not combined_data:
+                return pd.DataFrame()
+            
+            claimed_df = pd.concat(combined_data, ignore_index=True)
+            
+            # Reorder columns to put Fantasy_Team first
+            cols = ['Fantasy_Team'] + [col for col in claimed_df.columns if col != 'Fantasy_Team']
+            claimed_df = claimed_df[cols]
+            
+            print(f"✓ Total claimed players: {len(claimed_df)} across {len(all_rosters)} teams")
+            
+            # Merge with ID map if available
+            if self.id_map_df is not None and not claimed_df.empty:
+                claimed_df = self._enrich_fantrax_data(claimed_df)
+            
+            return claimed_df
+            
+        except Exception as e:
+            print(f"✗ Error fetching claimed players: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return pd.DataFrame()
+    
+    def get_available_players(self, league: 'League', position: Optional[str] = None) -> pd.DataFrame:
+        """
+        Get available free agents by comparing ID map with claimed players.
+        
+        Args:
+            league: League object from connect_fantrax_league()
+            position: Optional position filter (e.g., 'SP', 'OF', 'SS')
+            
+        Returns:
+            DataFrame with available players (not on any roster)
+        """
+        try:
+            # Load ID map if not already loaded
+            if self.id_map_df is None:
+                print("Loading ID map...")
+                self.load_id_map()
+            
+            if self.id_map_df is None or self.id_map_df.empty:
+                print("✗ ID map not available")
+                return pd.DataFrame()
+            
+            # Get all claimed players
+            print("Fetching claimed players...")
+            claimed_df = self.get_all_claimed_players(league)
+            
+            if claimed_df.empty:
+                print("⚠ No claimed players found, returning all players")
+                available_df = self.id_map_df.copy()
+            else:
+                # Get list of claimed Fantrax IDs
+                claimed_ids = set(claimed_df['Fantrax_ID'].dropna().unique())
+                print(f"✓ Found {len(claimed_ids)} unique claimed players")
+                
+                # The ID map has Fantrax IDs with asterisks (*05u2v*) while
+                # the roster data has them without (05u2v). We need to normalize.
+                # Create a set with both formats for matching
+                claimed_ids_normalized = set()
+                for fid in claimed_ids:
+                    claimed_ids_normalized.add(fid)
+                    claimed_ids_normalized.add(f"*{fid}*")  # Add with asterisks
+                
+                # Filter ID map to exclude claimed players
+                # Match on FANTRAXID column from ID map
+                available_df = self.id_map_df[
+                    ~self.id_map_df['FANTRAXID'].isin(claimed_ids_normalized)
+                ].copy()
+                
+                print(f"✓ Found {len(available_df)} available players")
+            
+            # Filter by position if specified
+            if position and 'POS' in available_df.columns:
+                available_df = available_df[
+                    available_df['POS'].str.contains(position, na=False, case=False)
+                ]
+                print(f"✓ Filtered to {len(available_df)} {position} players")
+            
+            # Select and rename relevant columns for display
+            display_columns = []
+            column_mapping = {}
+            
+            if 'PLAYERNAME' in available_df.columns:
+                display_columns.append('PLAYERNAME')
+                column_mapping['PLAYERNAME'] = 'Player_Name'
+            if 'FANTRAXID' in available_df.columns:
+                display_columns.append('FANTRAXID')
+                column_mapping['FANTRAXID'] = 'Fantrax_ID'
+            if 'POS' in available_df.columns:
+                display_columns.append('POS')
+                column_mapping['POS'] = 'Position'
+            if 'TEAM' in available_df.columns:
+                display_columns.append('TEAM')
+                column_mapping['TEAM'] = 'MLB_Team'
+            if 'MLBID' in available_df.columns:
+                display_columns.append('MLBID')
+                column_mapping['MLBID'] = 'MLB_ID'
+            if 'IDFANGRAPHS' in available_df.columns:
+                display_columns.append('IDFANGRAPHS')
+                column_mapping['IDFANGRAPHS'] = 'Fangraphs_ID'
+            
+            # Keep only relevant columns
+            if display_columns:
+                available_df = available_df[display_columns].copy()
+                available_df = available_df.rename(columns=column_mapping)
+            
+            # Sort by player name
+            if 'Player_Name' in available_df.columns:
+                available_df = available_df.sort_values('Player_Name')
+            
+            # Reset index
+            available_df = available_df.reset_index(drop=True)
+            
+            return available_df
+            
+        except Exception as e:
+            print(f"✗ Error fetching available players: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return pd.DataFrame()
+    
     def get_free_agents(self, league: 'League', position: Optional[str] = None) -> pd.DataFrame:
         """
-        Get available free agents from the league.
-        
-        Note: This is a workaround since fantraxapi doesn't have a direct free agents endpoint.
-        It identifies free agents by comparing player pool with rostered players.
+        Alias for get_available_players() for backward compatibility.
         
         Args:
             league: League object from connect_fantrax_league()
@@ -511,23 +655,9 @@ class DataManager:
         Returns:
             DataFrame with free agent information
         """
-        try:
-            # If your league is public and has a visible available players list,
-            # you may need to implement web scraping or use the raw API
-            # For now, return guidance
-            
-            print("⚠ Free agent list retrieval:")
-            print("  The fantraxapi library doesn't directly expose available players.")
-            print("  Options:")
-            print("  1. Check if your league is public and scrape available players")
-            print("  2. Use the raw Fantrax API with league ID")
-            print("  3. Export available players CSV from Fantrax manually")
-            
-            return pd.DataFrame()
-            
-        except Exception as e:
-            print(f"✗ Error fetching free agents: {str(e)}")
-            return pd.DataFrame()
+        return self.get_available_players(league, position)
+    
+    # ==================== FANGRAPHS PROJECTIONS ====================
     
     def get_league_standings(self, league: 'League') -> pd.DataFrame:
         """
