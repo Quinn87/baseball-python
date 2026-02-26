@@ -24,11 +24,12 @@ This script will:
 
 - Check that all dependencies are installed
 - Prompt for your Fantrax username and password
+- Save credentials to `fantrax_credentials.txt` (for automatic login)
 - Open a Chrome browser window and log you in
 - Save authentication cookies to `fantrax_login.cookie`
-- Optionally test your connection to league **l5b4evbymg6tge5z**
+- Setup automatic authentication for the app
 
-**Note:** Your password is NOT stored anywhere. Only the authentication cookies are saved locally.
+**Note:** Credentials are stored locally in `fantrax_credentials.txt` for automatic re-authentication when cookies expire.
 
 ### 3. Launch the App
 
@@ -79,17 +80,20 @@ Authentication cookies typically last several weeks. If they expire:
 
 ## How It Works
 
-1. **Selenium Login:** The script uses Chrome WebDriver to automate the Fantrax login process
-2. **Cookie Extraction:** After successful login, it extracts authentication cookies
-3. **Cookie Storage:** Cookies are saved to `fantrax_login.cookie` (JSON format)
-4. **Auto-Injection:** When connecting to the league, cookies are automatically loaded and added to API requests
+1. **Credential Storage:** Username/password saved to `fantrax_credentials.txt` for automatic re-authentication
+2. **Selenium Login:** The script uses Chrome WebDriver to automate the Fantrax login process
+3. **Cookie Extraction:** After successful login, it extracts authentication cookies
+4. **Cookie Storage:** Cookies are saved to `fantrax_login.cookie` (pickle format)
+5. **Auto-Injection:** When connecting to the league, cookies are automatically loaded and added to API requests
+6. **Auto-Refresh:** If cookies expire, the system automatically re-authenticates using saved credentials
 
 ## Security Notes
 
-- Your password is **never stored** - only authentication cookies
+- Credentials are stored locally in `fantrax_credentials.txt` (plain text)
 - The `fantrax_login.cookie` file contains session tokens
-- Keep this file private (it's already in `.gitignore`)
-- If compromised, simply delete the file and re-authenticate
+- Keep both files private (they're in `.gitignore`)
+- If compromised, delete both files and re-authenticate
+- Consider using environment variables (`FANTRAX_USERNAME`, `FANTRAX_PASSWORD`) instead of the credentials file for better security
 
 ## Next Steps
 

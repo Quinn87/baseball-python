@@ -174,11 +174,30 @@ Adjust these values to match your league's specific point values.
 
 ## Fantrax Integration
 
-**Note**: Fantrax does not provide a public API. To analyze your roster:
+✅ **Full Fantrax API integration is now available!** Using the `fantraxapi` library, you can:
 
-1. Go to your Fantrax league
-2. Export your roster as CSV
-3. Upload the CSV in the "Roster Manager" tab
+- Pull your live roster directly from Fantrax
+- View league standings in real-time
+- Track recent transactions
+- Analyze all teams in your league
+
+### Quick Setup for Public Leagues
+
+1. Install: `pip install fantraxapi`
+2. Get your League ID from your Fantrax URL
+3. Connect in the app's "🔗 Fantrax League" page
+
+### Setup for Private Leagues
+
+If your league is private, run this one-time setup:
+
+```bash
+python setup_private_league.py
+```
+
+This will authenticate you with Fantrax and save your credentials for automatic login.
+
+**See [AUTHENTICATION_GUIDE.md](AUTHENTICATION_GUIDE.md) and [FANTRAX_GUIDE.md](FANTRAX_GUIDE.md) for detailed instructions.**
 
 ## Future Enhancements
 
@@ -187,7 +206,8 @@ Adjust these values to match your league's specific point values.
 - [ ] Draft assistant mode
 - [ ] Injury tracking integration
 - [ ] Custom scoring system builder
-- [ ] Web scraping for Fantrax (use responsibly)
+- [ ] Free agent analysis from Fantrax
+- [ ] Automated waiver wire recommendations
 
 ## Technical Requirements
 
@@ -195,6 +215,8 @@ Adjust these values to match your league's specific point values.
 - Streamlit 1.28+
 - pandas 2.0+
 - pybaseball 2.2.7+
+- fantraxapi 1.0.0+ (for Fantrax integration)
+- selenium + webdriver-manager (for private league authentication)
 - Internet connection for data fetching
 
 ## Notes

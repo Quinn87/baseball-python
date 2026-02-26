@@ -5,6 +5,7 @@ This will log you in and save your credentials securely.
 """
 
 import sys
+import os
 from pathlib import Path
 
 # Check dependencies
@@ -57,11 +58,9 @@ def main():
     if not check_dependencies():
         return False
     
-    from fantrax_auth import quick_login_for_private_league
-    
     # Get credentials
     print("Enter your Fantrax credentials:")
-    print("(Your password is only used for login and is not saved)")
+    print("(Your credentials will be saved locally for automatic login)")
     print()
     username = input("Username/Email: ").strip()
     password = input("Password: ").strip()
@@ -71,16 +70,42 @@ def main():
         print("❌ Both username and password are required")
         return False
     
+    # Save credentials to file for future use
+    creds_file = "fantrax_credentials.txt"
+    try:
+        with open(creds_file, "w") as f:
+            f.write(f"{username}\n{password}\n")
+        print(f"✅ Credentials saved to {creds_file}")
+    except Exception as e:
+        print(f"⚠️  Could not save credentials: {e}")
+        print("   You'll need to re-enter them each time.")
+    
+    print()
+    
     # Attempt login
     print("🔐 Logging in to Fantrax...")
     print("(This will open Chrome in the background)")
     print()
     
-    auth = quick_login_for_private_league(username, password)
-    
-    if not auth:
+    try:
+        from fantrax_auth import setup_fantrax_auth, add_cookie_to_session
+        from requests import Session
+        
+        # Force a fresh login by creating a session and calling add_cookie_to_session
+        # with ignore_cookie=True
+        session = Session()
+        add_cookie_to_session(session, ignore_cookie=True)
+        
+        # Now setup the authentication for future use
+        setup_fantrax_auth()
+        
         print()
-        print("❌ Login failed. Please check your credentials and try again.")
+        print("✅ Login successful!")
+        
+    except Exception as e:
+        print()
+        print(f"❌ Login failed: {e}")
+        print("Please check your credentials and try again.")
         return False
     
     print()

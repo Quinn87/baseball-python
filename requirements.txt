@@ -3,4 +3,7 @@ pandas>=2.0.0
 pybaseball>=2.2.7
 requests>=2.31.0
 numpy>=1.24.0
+
+# fantraxapi pinned to 1.0.0 (1.0.1 has bugs: infinite auth loops, missing API methods)
+# Our fantraxapi_patch.py fixes the date parsing bug in 1.0.0
 fantraxapi==1.0.0
