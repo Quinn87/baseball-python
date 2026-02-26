@@ -333,15 +333,13 @@ class DataManager:
             # Check for authentication (for private leagues)
             if use_auth:
                 try:
-                    from fantrax_auth import FantraxAuth
+                    from fantrax_auth import setup_fantrax_auth
                     from pathlib import Path
                     
                     cookie_file = Path("fantrax_login.cookie")
                     if cookie_file.exists():
                         print("🔐 Using saved authentication for private league...")
-                        auth = FantraxAuth()
-                        auth.load_cookies()
-                        auth.setup_auto_auth()
+                        setup_fantrax_auth()
                         print("✓ Authentication enabled")
                 except ImportError:
                     pass  # Auth module not available, continue without it

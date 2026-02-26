@@ -32,7 +32,7 @@ def test_private_league(league_id):
     print()
     
     try:
-        from fantrax_auth import FantraxAuth
+        from fantrax_auth import setup_fantrax_auth
         from fantraxapi import League
         
         # Apply patch for fantraxapi bug
@@ -52,9 +52,7 @@ def test_private_league(league_id):
     
     # Setup authentication
     print("🔐 Setting up authenticated session...")
-    auth = FantraxAuth()
-    auth.load_cookies()
-    auth.setup_auto_auth()
+    setup_fantrax_auth()
     print()
     
     # Try to connect
