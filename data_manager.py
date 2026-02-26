@@ -348,7 +348,7 @@ class DataManager:
             league = League(league_id)
             print(f"✓ Connected to league: {league.name} ({league.year})")
             print(f"  Teams: {len(league.teams)}")
-            print(f"  Scoring Periods: {len(league.scoring_periods())}")
+            # Note: scoring_periods() doesn't exist in fantraxapi 1.0.0
             
             return league
             
@@ -368,6 +368,35 @@ class DataManager:
             
             return None
     
+    def get_league_teams(self, league: 'League') -> list:
+        """
+        Get list of teams from a Fantrax league.
+        
+        In fantraxapi 1.0.0, league.teams is often empty, but we can get teams
+        from the standings instead.
+        
+        Args:
+            league: League object from connect_fantrax_league()
+            
+        Returns:
+            List of Team objects
+        """
+        # Try league.teams first (might be empty in 1.0.0)
+        if league.teams:
+            return league.teams
+        
+        # Fall back to getting teams from standings
+        try:
+            standings = league.standings()
+            teams = []
+            for rank, record in standings.ranks.items():
+                if hasattr(record, 'team'):
+                    teams.append(record.team)
+            return teams
+        except Exception as e:
+            print(f"Warning: Could not fetch teams from standings: {e}")
+            return []
+    
     def get_my_roster(self, league: 'League', team_name: str) -> pd.DataFrame:
         """
         Get your team's roster from Fantrax.
@@ -380,7 +409,19 @@ class DataManager:
             DataFrame with your roster
         """
         try:
-            team = league.team(team_name)
+            # Get team from standings (league.team() doesn't work in 1.0.0)
+            teams = self.get_league_teams(league)
+            team = None
+            for t in teams:
+                if team_name.lower() in t.name.lower():
+                    team = t
+                    break
+            
+            if not team:
+                print(f"✗ Team '{team_name}' not found in league")
+                return pd.DataFrame()
+            
+            print(f"Fetching roster for {team.name}...")
             roster = team.roster()
             
             roster_data = []
@@ -425,7 +466,8 @@ class DataManager:
         all_rosters = {}
         
         try:
-            for team in league.teams:
+            teams = self.get_league_teams(league)
+            for team in teams:
                 print(f"  Fetching roster for {team.name}...")
                 roster = team.roster()
                 

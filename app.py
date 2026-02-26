@@ -508,28 +508,27 @@ def show_fantrax_connection():
     # Show league info if connected
     if st.session_state.fantrax_league:
         league = st.session_state.fantrax_league
+        teams = dm.get_league_teams(league)
         
         st.subheader(f"📊 {league.name} ({league.year})")
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Teams", len(league.teams))
+            st.metric("Teams", len(teams))
         with col2:
-            st.metric("Scoring Periods", len(league.scoring_periods()))
-        with col3:
             st.metric("Start Date", league.start_date.strftime("%m/%d/%Y") if league.start_date else "N/A")
-        with col4:
+        with col3:
             st.metric("End Date", league.end_date.strftime("%m/%d/%Y") if league.end_date else "N/A")
         
         st.markdown("---")
         
         # Team selection
         st.subheader("Select Your Team")
-        team_names = [team.name for team in league.teams]
+        team_names = [team.name for team in teams]
         my_team = st.selectbox(
             "Your Team:",
             [""] + team_names,
-            index=0 if not st.session_state.my_team_name else team_names.index(st.session_state.my_team_name) + 1
+            index=0 if not st.session_state.my_team_name else team_names.index(st.session_state.my_team_name) + 1 if st.session_state.my_team_name in team_names else 0
         )
         
         if my_team:
@@ -541,7 +540,7 @@ def show_fantrax_connection():
         # Show all teams
         with st.expander("📋 View All Teams"):
             teams_data = []
-            for team in league.teams:
+            for team in teams:
                 teams_data.append({
                     'Team Name': team.name,
                     'Short Name': team.short,

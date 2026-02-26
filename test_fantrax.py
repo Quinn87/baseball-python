@@ -32,21 +32,26 @@ def test_connection(league_id):
         print(f"End Date: {league.end_date}")
         print()
         
-        # Show teams
-        print(f"Teams ({len(league.teams)}):")
-        for i, team in enumerate(league.teams, 1):
+        # Show teams (get from standings since league.teams is often empty in 1.0.0)
+        teams = []
+        try:
+            standings = league.standings()
+            teams = [record.team for record in standings.ranks.values() if hasattr(record, 'team')]
+        except:
+            teams = league.teams  # Fallback to league.teams
+        
+        print(f"Teams ({len(teams)}):")
+        for i, team in enumerate(teams, 1):
             print(f"  {i}. {team.name} ({team.short})")
         print()
         
-        # Show scoring periods
-        scoring_periods = league.scoring_periods()
-        print(f"Scoring Periods: {len(scoring_periods)}")
-        print()
+        # Note: scoring_periods() doesn't exist in fantraxapi 1.0.0
+        # Skipping scoring periods display
         
         # Test getting a roster
-        if league.teams:
+        if teams:
             print("Testing roster fetch for first team...")
-            first_team = league.teams[0]
+            first_team = teams[0]
             roster = first_team.roster()
             
             player_count = sum(1 for row in roster.rows if row.player)
